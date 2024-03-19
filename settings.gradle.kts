@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Voyager Safe Args"
 include(":app")
- 
+include(":voyager-safe-args")
+include(":voyager-safe-args-processor")

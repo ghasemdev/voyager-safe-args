@@ -53,3 +53,7 @@ voyager = [
     "voyager-screenModel",
     "voyager-transitions"
 ]
+processing = [
+    "case-format",
+    "ksp-api"
+]
