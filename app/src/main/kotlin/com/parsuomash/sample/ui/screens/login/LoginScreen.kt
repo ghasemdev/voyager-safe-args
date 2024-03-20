@@ -3,14 +3,12 @@ package com.parsuomash.sample.ui.screens.login
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.NonRestartableComposable
 import com.parsuomash.voyager_safe_args.Screen
 
 data class LoginData(val title: String = "", val price: Int = 0)
 
 @Screen
 @Composable
-@NonRestartableComposable
 internal fun LoginScreen(
   id: String,
   id2: Int,

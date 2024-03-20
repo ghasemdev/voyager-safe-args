@@ -22,9 +22,7 @@ class MainActivity : ComponentActivity() {
           modifier = Modifier.fillMaxSize(),
           color = MaterialTheme.colorScheme.background
         ) {
-          Navigator(
-            HomeScreen()
-          ) { navigator ->
+          Navigator(HomeScreen) { navigator ->
             SlideTransition(navigator)
           }
         }

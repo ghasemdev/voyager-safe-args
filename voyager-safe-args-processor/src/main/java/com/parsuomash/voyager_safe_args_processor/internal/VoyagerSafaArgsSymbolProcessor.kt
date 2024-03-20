@@ -136,14 +136,13 @@ internal class VoyagerSafaArgsSymbolProcessor(
     isSerializableParamExist: Boolean,
   ) {
     val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}"
-    val packageName = "com.parsuomash.voyager_safe_args"
 
     val classType = if (isSerializableParamExist) {
       "abstract class"
     } else if (classParams.isNotBlank()) {
       "data class"
     } else {
-      "class"
+      "data object"
     }
     val className = if (isSerializableParamExist) "${functionName}SafeArg" else functionName
     val classParameter = if (classParams.isNotBlank()) "(\n$classParams\n)" else ""
@@ -171,17 +170,18 @@ internal class VoyagerSafaArgsSymbolProcessor(
         aggregating = true,
         sources = screenAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
       ),
-      packageName = packageName,
+      packageName = PACKAGE_NAME,
       fileName = fileName
     ).use { stream ->
       stream.write(
         """
-          |package $packageName
+          |package $PACKAGE_NAME
           |
           |${imports}
           |
           |$screenWrapperClass${visibility}$classType $className$classParameter : Screen {
           |$INDENTATION@Composable
+          |$INDENTATION@NonRestartableComposable
           |${INDENTATION}override fun Content() {
           |$INDENTATION2x$functionName$composableParameter
           |$INDENTATION}
@@ -208,8 +208,8 @@ internal class VoyagerSafaArgsSymbolProcessor(
     val INDENTATION2x = " ".repeat(4)
     val INDENTATION3x = " ".repeat(6)
 
-    private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args."
+    private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
     private const val SCREEN_ANNOTATION_ANNOTATION = "Screen"
-    const val SCREEN_ANNOTATION_PACKAGE = PACKAGE_NAME + SCREEN_ANNOTATION_ANNOTATION
+    const val SCREEN_ANNOTATION_PACKAGE = "$PACKAGE_NAME.$SCREEN_ANNOTATION_ANNOTATION"
   }
 }

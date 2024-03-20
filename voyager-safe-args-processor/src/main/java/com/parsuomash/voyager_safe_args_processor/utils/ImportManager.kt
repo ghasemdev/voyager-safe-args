@@ -6,6 +6,7 @@ internal class ImportManager {
 
   init {
     append(COMPOSABLE)
+    append(NON_RESTARTABLE_COMPOSABLE)
     append(VOYAGER_SCREEN)
   }
 
@@ -18,5 +19,6 @@ internal class ImportManager {
   companion object {
     const val VOYAGER_SCREEN = "cafe.adriel.voyager.core.screen.Screen"
     const val COMPOSABLE = "androidx.compose.runtime.Composable"
+    const val NON_RESTARTABLE_COMPOSABLE = "androidx.compose.runtime.NonRestartableComposable"
   }
 }
