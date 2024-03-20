@@ -71,16 +71,45 @@ internal class VoyagerSafaArgsSymbolProcessor(
       val subclassParams = StringBuilder()
       val supperClassParams = StringBuilder()
       val composableParams = StringBuilder()
+      val equalsConditions = StringBuilder()
+      val hashCodeFormula = StringBuilder()
+      val toStringFormula = StringBuilder()
 
       paramsWithType.forEachIndexed { index, (param, type, isSerializable) ->
         if (isSerializable) {
           classParams.append("${INDENTATION}val $param: String")
           subclassParams.append("${INDENTATION}$param: $type")
           if (index != paramsWithType.lastIndex) subclassParams.appendSeparator()
+
+          equalsConditions.append("${INDENTATION2x}if ($param != other.$param) return false")
+          equalsConditions.appendLine()
+
+          if (index == 0) {
+            hashCodeFormula.append("${INDENTATION2x}var result = $param.hashCode()")
+          } else {
+            hashCodeFormula.append("${INDENTATION2x}result = 31 * result + $param.hashCode()")
+          }
+          hashCodeFormula.appendLine()
+
+          toStringFormula.append("$param=\${$param.decode<$type>()}")
+          if (index != paramsWithType.lastIndex) toStringFormula.append(", ")
         } else if (isSerializableParamExist) {
           classParams.append("${INDENTATION}open val $param: $type")
           subclassParams.append("${INDENTATION}override val $param: $type")
           if (index != paramsWithType.lastIndex) subclassParams.appendSeparator()
+
+          equalsConditions.append("${INDENTATION2x}if ($param != other.$param) return false")
+          equalsConditions.appendLine()
+
+          if (index == 0) {
+            hashCodeFormula.append("${INDENTATION2x}var result = $param.hashCode()")
+          } else {
+            hashCodeFormula.append("${INDENTATION2x}result = 31 * result + $param.hashCode()")
+          }
+          hashCodeFormula.appendLine()
+
+          toStringFormula.append("$param=$$param")
+          if (index != paramsWithType.lastIndex) toStringFormula.append(", ")
         } else {
           classParams.append("${INDENTATION}val $param: $type")
         }
@@ -120,7 +149,10 @@ internal class VoyagerSafaArgsSymbolProcessor(
         subclassParams = subclassParams.toString(),
         supperClassParams = supperClassParams.toString(),
         composableParams = composableParams.toString(),
-        isSerializableParamExist = isSerializableParamExist
+        isSerializableParamExist = isSerializableParamExist,
+        equalsConditions = equalsConditions.toString(),
+        hashCodeFormula = hashCodeFormula.toString(),
+        toStringFormula = toStringFormula.toString()
       )
     }
   }
@@ -134,6 +166,9 @@ internal class VoyagerSafaArgsSymbolProcessor(
     supperClassParams: String,
     composableParams: String,
     isSerializableParamExist: Boolean,
+    equalsConditions: String,
+    hashCodeFormula: String,
+    toStringFormula: String,
   ) {
     val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}"
 
@@ -165,6 +200,46 @@ internal class VoyagerSafaArgsSymbolProcessor(
       )
     }
 
+    val equalsFunction = StringBuilder()
+    if (isSerializableParamExist) {
+      equalsFunction.append(
+        """
+          |
+          |${INDENTATION}override fun equals(other: Any?): Boolean {
+          |${INDENTATION2x}if (this === other) return true
+          |${INDENTATION2x}if (javaClass != other?.javaClass) return false
+          |
+          |${INDENTATION2x}other as ${functionName}SafeArg
+          |
+          |$equalsConditions
+          |${INDENTATION2x}return true
+          |${INDENTATION}}"""
+      )
+    }
+
+    val hashCodeFunction = StringBuilder()
+    if (isSerializableParamExist) {
+      equalsFunction.append(
+        """
+          |
+          |${INDENTATION}override fun hashCode(): Int {
+          |$hashCodeFormula
+          |${INDENTATION2x}return result
+          |${INDENTATION}}"""
+      )
+    }
+
+    val toStringFunction = StringBuilder()
+    if (isSerializableParamExist) {
+      toStringFunction.append(
+        """
+          |
+          |${INDENTATION}override fun toString(): String {
+          |${INDENTATION2x}return "$functionName($toStringFormula)"
+          |${INDENTATION}}"""
+      )
+    }
+
     codeGenerator.createNewFile(
       dependencies = Dependencies(
         aggregating = true,
@@ -184,7 +259,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
           |$INDENTATION@NonRestartableComposable
           |${INDENTATION}override fun Content() {
           |$INDENTATION2x$functionName$composableParameter
-          |$INDENTATION}
+          |$INDENTATION}$equalsFunction$hashCodeFunction$toStringFunction
           |}
           |
           """.trimMargin().toByteArray()
