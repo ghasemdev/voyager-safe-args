@@ -7,34 +7,32 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.parsuomash.sample.ui.screens.detail.Detail
-import com.parsuomash.sample.ui.screens.detail.DetailScreen
-import com.parsuomash.sample.ui.screens.detail.encode
+import com.parsuomash.sample.ui.screens.detail.safe_args.DetailScreen
+import com.parsuomash.voyager_safe_args.Screen
 
-class HomeScreen : Screen {
-  @Composable
-  override fun Content() {
-    val navigator = LocalNavigator.currentOrThrow
+@Screen
+@Composable
+fun HomeScreen() {
+  val navigator = LocalNavigator.currentOrThrow
 
-    Box(
-      modifier = Modifier.fillMaxSize(),
-      contentAlignment = Alignment.Center
-    ) {
-      Button(
-        onClick = {
-          navigator.push(
-            DetailScreen(
-              id = "1",
-              _detail = Detail(title = "some title", price = 1000).encode()
-            )
+  Box(
+    modifier = Modifier.fillMaxSize(),
+    contentAlignment = Alignment.Center
+  ) {
+    Button(
+      onClick = {
+        navigator.push(
+          DetailScreen(
+            id = "1",
+            detail = Detail(title = "some title", price = 1000)
           )
-        }
-      ) {
-        Text(text = "go to detail")
+        )
       }
+    ) {
+      Text(text = "go to detail")
     }
   }
 }
