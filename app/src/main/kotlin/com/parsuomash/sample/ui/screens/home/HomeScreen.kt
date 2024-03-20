@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.parsuomash.sample.ui.screens.detail.Detail
-import com.parsuomash.sample.ui.screens.detail.safe_args.DetailScreen
+import com.parsuomash.voyager_safe_args.DetailScreen
 import com.parsuomash.voyager_safe_args.Screen
 
 @Screen

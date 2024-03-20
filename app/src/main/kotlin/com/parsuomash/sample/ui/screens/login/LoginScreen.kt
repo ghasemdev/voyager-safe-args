@@ -5,11 +5,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.NonRestartableComposable
 import com.parsuomash.voyager_safe_args.Screen
-import kotlinx.serialization.Serializable
 
-@Serializable
 data class LoginData(val title: String = "", val price: Int = 0)
-data class LoginData2(val title: String = "", val price: Int = 0)
 
 @Screen
 @Composable
@@ -21,8 +18,7 @@ internal fun LoginScreen(
   data: LoginData,
   id4: Float,
   id5: Double,
-  id6: Long,
-  data2: LoginData2
+  id6: Long
 ) {
   Column {
     Text(text = "Login $id")
@@ -32,6 +28,5 @@ internal fun LoginScreen(
     Text(text = "Login $id5")
     Text(text = "Login $id6")
     Text(text = "Login $data")
-    Text(text = "Login $data2")
   }
 }

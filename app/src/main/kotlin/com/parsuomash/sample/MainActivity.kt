@@ -9,8 +9,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
-import com.parsuomash.sample.ui.screens.home.safe_args.HomeScreen
 import com.parsuomash.sample.ui.theme.VoyagerSafeArgsTheme
+import com.parsuomash.voyager_safe_args.HomeScreen
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {

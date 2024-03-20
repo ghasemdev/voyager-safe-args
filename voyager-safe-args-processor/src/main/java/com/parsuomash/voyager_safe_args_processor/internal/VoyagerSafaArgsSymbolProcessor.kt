@@ -114,7 +114,6 @@ internal class VoyagerSafaArgsSymbolProcessor(
 
       writeToFile(
         imports = importManager.finalize(),
-        packageName = packageName,
         visibility = visibility,
         functionName = functionName,
         classParams = classParams.toString(),
@@ -127,7 +126,6 @@ internal class VoyagerSafaArgsSymbolProcessor(
   }
 
   private fun writeToFile(
-    packageName: String,
     imports: String,
     visibility: String,
     functionName: String,
@@ -138,7 +136,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     isSerializableParamExist: Boolean,
   ) {
     val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}"
-    val packageNameSuffix = ".safe_args"
+    val packageName = "com.parsuomash.voyager_safe_args"
 
     val classType = if (isSerializableParamExist) {
       "abstract class"
@@ -173,12 +171,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
         aggregating = true,
         sources = screenAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
       ),
-      packageName = "$packageName$packageNameSuffix",
+      packageName = packageName,
       fileName = fileName
     ).use { stream ->
       stream.write(
         """
-          |package $packageName$packageNameSuffix
+          |package $packageName
           |
           |${imports}
           |
