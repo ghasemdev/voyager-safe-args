@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.parsuomash.sample.ui.screens.detail.Detail
-import com.parsuomash.voyager_safe_args.DetailScreen
+import com.parsuomash.voyager_safe_args.DetailDestination
 import com.parsuomash.voyager_safe_args.Screen
 
 @Screen
@@ -25,7 +25,7 @@ fun HomeScreen() {
     Button(
       onClick = {
         navigator.push(
-          DetailScreen(
+          DetailDestination(
             id = "1",
             detail = Detail(title = "some title", price = 1000)
           )

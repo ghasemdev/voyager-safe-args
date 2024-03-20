@@ -13,11 +13,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Detail(val title: String = "", val price: Int = 0)
 
-@Screen
+@Screen(
+  key = "1234",
+  name = "DetailDestination"
+)
 @Composable
 fun DetailScreen(
   id: String,
   detail: Detail
+  // TODO Add List, Array, ...
 ) {
   Column(
     modifier = Modifier.fillMaxSize(),

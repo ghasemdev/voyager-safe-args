@@ -8,7 +8,9 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
@@ -30,6 +32,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     screenAnnotationFinish()
   }
 
+  // TODO Refactor
   private fun screenAnnotationFinish() {
     screenAnnotationDeclarations.forEach { declaration ->
       val functionName = declaration.simpleName.getShortName()
@@ -38,6 +41,17 @@ internal class VoyagerSafaArgsSymbolProcessor(
       val importManager = ImportManager().apply {
         append("$packageName.$functionName")
       }
+
+      val screenKey = declaration
+        .annotations
+        .getValue<String>("Screen", "key")
+      if (!screenKey.isNullOrBlank()) {
+        importManager.append("cafe.adriel.voyager.core.screen.ScreenKey")
+      }
+
+      val screenName = declaration
+        .annotations
+        .getValue<String>("Screen", "name")
 
       val paramsWithType = declaration.parameters.map {
         val dec = it.type.resolve().declaration
@@ -144,7 +158,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
       writeToFile(
         imports = importManager.finalize(),
         visibility = visibility,
-        functionName = functionName,
+        functionName = if (!screenName.isNullOrBlank()) screenName else functionName,
         classParams = classParams.toString(),
         subclassParams = subclassParams.toString(),
         supperClassParams = supperClassParams.toString(),
@@ -152,7 +166,8 @@ internal class VoyagerSafaArgsSymbolProcessor(
         isSerializableParamExist = isSerializableParamExist,
         equalsConditions = equalsConditions.toString(),
         hashCodeFormula = hashCodeFormula.toString(),
-        toStringFormula = toStringFormula.toString()
+        toStringFormula = toStringFormula.toString(),
+        screenKey = screenKey
       )
     }
   }
@@ -169,6 +184,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     equalsConditions: String,
     hashCodeFormula: String,
     toStringFormula: String,
+    screenKey: String?,
   ) {
     val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}"
 
@@ -240,6 +256,16 @@ internal class VoyagerSafaArgsSymbolProcessor(
       )
     }
 
+    val key = StringBuilder()
+    if (!screenKey.isNullOrBlank()) {
+      key.append(
+        """${INDENTATION}override val key: ScreenKey
+          |${INDENTATION2x}get() = "$screenKey"
+          |
+          |"""
+      )
+    }
+
     codeGenerator.createNewFile(
       dependencies = Dependencies(
         aggregating = true,
@@ -255,7 +281,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
           |${imports}
           |
           |$screenWrapperClass${visibility}$classType $className$classParameter : Screen {
-          |$INDENTATION@Composable
+          |$key$INDENTATION@Composable
           |$INDENTATION@NonRestartableComposable
           |${INDENTATION}override fun Content() {
           |$INDENTATION2x$functionName$composableParameter
@@ -266,6 +292,20 @@ internal class VoyagerSafaArgsSymbolProcessor(
       )
     }
   }
+
+  private inline fun <reified T> Sequence<KSAnnotation>.getValue(
+    annotationName: String,
+    argumentName: String
+  ): T? = withName(annotationName)
+    ?.arguments
+    ?.withName(argumentName)
+    ?.value as? T
+
+  private fun Sequence<KSAnnotation>.withName(annotationName: String): KSAnnotation? =
+    firstOrNull { it.shortName.getShortName() == annotationName }
+
+  private fun List<KSValueArgument>.withName(argumentName: String): KSValueArgument? =
+    firstOrNull { it.name?.getShortName() == argumentName }
 
   private fun Resolver.screenAnnotationProcess() {
     getSymbolsWithAnnotation(SCREEN_ANNOTATION_PACKAGE)
