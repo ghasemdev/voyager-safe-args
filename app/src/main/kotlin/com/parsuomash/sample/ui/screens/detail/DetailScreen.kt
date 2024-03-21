@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.parsuomash.voyager_safe_args.Screen
+import com.parsuomash.voyager_safe_args.ScreenKey
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -16,7 +17,7 @@ data class Detail(val title: String = "", val price: Int = 0)
 @Screen("DetailDestination")
 @Composable
 fun DetailScreen(
-  id: String,
+  @ScreenKey id: Long,
   detail: Detail
   // TODO Add List, Array, ...
 ) {

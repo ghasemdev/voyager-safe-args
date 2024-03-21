@@ -14,12 +14,14 @@ import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
+import com.parsuomash.voyager_safe_args_processor.utils.Logger
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
   private val codeGenerator: CodeGenerator,
-  private val logger: KSPLogger
+  logger: KSPLogger
 ) : SymbolProcessor {
+  private val logger = Logger(logger)
   private val screenAnnotationDeclarations = mutableListOf<KSFunctionDeclaration>()
   private val screenAnnotationVisitor = ScreenAnnotationVisitor(screenAnnotationDeclarations)
 
@@ -42,29 +44,54 @@ internal class VoyagerSafaArgsSymbolProcessor(
         append("$packageName.$functionName")
       }
 
-      val screenKey = declaration
-        .annotations
-        .getValue<String>("Screen", "key")
-      if (!screenKey.isNullOrBlank()) {
-        importManager.append("cafe.adriel.voyager.core.screen.ScreenKey")
-      }
-
       val screenName = declaration
         .annotations
         .getValue<String>("Screen", "name")
 
+      var screenKeyCount = 0
+      var screenKeyAnnotation: String? = null
       val paramsWithType = declaration.parameters.map {
-        val dec = it.type.resolve().declaration
-        val type = dec.simpleName.getShortName()
-        val packageNameType = dec.packageName.asString()
+        val typeDeclaration = it.type.resolve().declaration
+        val name = it.name!!.getShortName()
+        val type = typeDeclaration.simpleName.getShortName()
+        val packageNameType = typeDeclaration.packageName.asString()
 
         var isSerializable = false
-        dec.annotations.forEach { annotation ->
+        for (annotation in it.annotations) {
+          if (
+            annotation.annotationType.resolve().declaration.packageName.asString() == "com.parsuomash.voyager_safe_args" &&
+            annotation.shortName.asString() == "ScreenKey"
+          ) {
+            if (packageNameType == "kotlin" && type in listOf("Int", "Long", "String")) {
+              screenKeyAnnotation = name
+              screenKeyCount++
+              if (screenKeyCount == 2) {
+                logger.error(
+                  """
+                    |[$packageName.$functionName]
+                    |   (@ScreenKey ...,@ScreenKey $name: $type, ...) You can only use one screenKey!!
+                  """.trimMargin()
+                )
+              }
+              break
+            } else {
+              logger.error(
+                """
+                  |[$packageName.$functionName]
+                  |   (@ScreenKey $name: $type, ...) screen key type must be Int, Long or String!!
+                  """.trimMargin()
+              )
+            }
+          }
+        }
+
+        for (annotation in typeDeclaration.annotations) {
           if (
             annotation.annotationType.resolve().declaration.packageName.asString() == "kotlinx.serialization" &&
             annotation.shortName.asString() == "Serializable"
           ) {
             isSerializable = true
+            break
           }
         }
 
@@ -72,8 +99,25 @@ internal class VoyagerSafaArgsSymbolProcessor(
           importManager.append("$packageNameType.$type")
         }
 
-        Triple(it.name!!.getShortName(), type, isSerializable)
+        Triple(name, type, isSerializable)
       }
+
+      val screenKey = declaration
+        .annotations
+        .getValue<String>("Screen", "key")
+
+      if (!screenKey.isNullOrBlank() && screenKeyCount != 0) {
+        logger.error(
+          """
+            |[$packageName.$functionName]
+            |   @Screen(key=...) and @ScreenKey not allow at the same time!!
+            """.trimMargin()
+        )
+      }
+      if (!screenKey.isNullOrBlank() || screenKeyCount != 0) {
+        importManager.append("cafe.adriel.voyager.core.screen.ScreenKey")
+      }
+
       val isSerializableParamExist = paramsWithType.any { it.third }
       if (isSerializableParamExist) {
         importManager.append("androidx.compose.runtime.remember")
@@ -148,7 +192,10 @@ internal class VoyagerSafaArgsSymbolProcessor(
         Visibility.PUBLIC -> false
         else -> {
           logger.error(
-            "Visibility of $packageName.$functionName function must be internal or public!!"
+            """
+              |[$packageName.$functionName]
+              |   visibility of function must be internal or public!!
+              """.trimMargin()
           )
           return
         }
@@ -158,7 +205,8 @@ internal class VoyagerSafaArgsSymbolProcessor(
       writeToFile(
         imports = importManager.finalize(),
         visibility = visibility,
-        functionName = if (!screenName.isNullOrBlank()) screenName else functionName,
+        functionName = functionName,
+        screenName = if (!screenName.isNullOrBlank()) screenName else functionName,
         classParams = classParams.toString(),
         subclassParams = subclassParams.toString(),
         supperClassParams = supperClassParams.toString(),
@@ -167,7 +215,8 @@ internal class VoyagerSafaArgsSymbolProcessor(
         equalsConditions = equalsConditions.toString(),
         hashCodeFormula = hashCodeFormula.toString(),
         toStringFormula = toStringFormula.toString(),
-        screenKey = screenKey
+        screenKey = screenKey,
+        screenKeyAnnotation = screenKeyAnnotation
       )
     }
   }
@@ -176,6 +225,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     imports: String,
     visibility: String,
     functionName: String,
+    screenName: String?,
     classParams: String,
     subclassParams: String,
     supperClassParams: String,
@@ -185,8 +235,9 @@ internal class VoyagerSafaArgsSymbolProcessor(
     hashCodeFormula: String,
     toStringFormula: String,
     screenKey: String?,
+    screenKeyAnnotation: String?,
   ) {
-    val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}"
+    val fileName = "${config.moduleName.toUpperCamelCase()}${screenName}"
 
     val classType = if (isSerializableParamExist) {
       "abstract class"
@@ -195,7 +246,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     } else {
       "data object"
     }
-    val className = if (isSerializableParamExist) "${functionName}SafeArg" else functionName
+    val className = if (isSerializableParamExist) "${screenName}SafeArg" else screenName
     val classParameter = if (classParams.isNotBlank()) "(\n$classParams\n)" else ""
     val subClassParameter = if (subclassParams.isNotBlank()) "(\n$subclassParams\n)" else ""
     val supperClassParameter =
@@ -210,7 +261,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     val screenWrapperClass = StringBuilder()
     if (isSerializableParamExist) {
       screenWrapperClass.append(
-        """${visibility}class $functionName$subClassParameter : $className$supperClassParameter
+        """${visibility}class $screenName$subClassParameter : $className$supperClassParameter
           |
           |"""
       )
@@ -225,7 +276,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
           |${INDENTATION2x}if (this === other) return true
           |${INDENTATION2x}if (javaClass != other?.javaClass) return false
           |
-          |${INDENTATION2x}other as ${functionName}SafeArg
+          |${INDENTATION2x}other as ${screenName}SafeArg
           |
           |$equalsConditions
           |${INDENTATION2x}return true
@@ -251,7 +302,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
         """
           |
           |${INDENTATION}override fun toString(): String {
-          |${INDENTATION2x}return "$functionName($toStringFormula)"
+          |${INDENTATION2x}return "$screenName($toStringFormula)"
           |${INDENTATION}}"""
       )
     }
@@ -260,7 +311,15 @@ internal class VoyagerSafaArgsSymbolProcessor(
     if (!screenKey.isNullOrBlank()) {
       key.append(
         """${INDENTATION}override val key: ScreenKey
-          |${INDENTATION2x}get() = "$screenKey"
+          |${INDENTATION2x}get() = "Screen#$screenKey"
+          |
+          |"""
+      )
+    }
+    if (!screenKeyAnnotation.isNullOrBlank()) {
+      key.append(
+        """${INDENTATION}override val key: ScreenKey
+          |${INDENTATION2x}get() = "Screen#$$screenKeyAnnotation"
           |
           |"""
       )

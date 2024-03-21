@@ -26,7 +26,7 @@ fun HomeScreen() {
       onClick = {
         navigator.push(
           DetailDestination(
-            id = "1",
+            id = 1,
             detail = Detail(title = "some title", price = 1000)
           )
         )
