@@ -13,10 +13,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Detail(val title: String = "", val price: Int = 0)
 
-@Screen(
-  key = "1234",
-  name = "DetailDestination"
-)
+@Screen("DetailDestination")
 @Composable
 fun DetailScreen(
   id: String,

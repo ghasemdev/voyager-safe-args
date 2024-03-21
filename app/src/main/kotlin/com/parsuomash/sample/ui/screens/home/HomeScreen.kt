@@ -13,7 +13,7 @@ import com.parsuomash.sample.ui.screens.detail.Detail
 import com.parsuomash.voyager_safe_args.DetailDestination
 import com.parsuomash.voyager_safe_args.Screen
 
-@Screen
+@Screen(key = "1234")
 @Composable
 fun HomeScreen() {
   val navigator = LocalNavigator.currentOrThrow
