@@ -5,15 +5,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.parsuomash.voyager_safe_args.Screen
 
-data class LoginData(val title: String = "", val price: Int = 0)
+data class TypesData(val title: String = "", val price: Int = 0)
 
 @Screen
 @Composable
-internal fun LoginScreen(
+internal fun TypesScreen(
   id: String,
   id2: Int,
   id3: Boolean,
-  data: LoginData,
+  data: TypesData,
   id4: Float,
   id5: Double,
   id6: Long
