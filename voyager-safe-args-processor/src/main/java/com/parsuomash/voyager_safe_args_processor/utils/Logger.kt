@@ -11,4 +11,4 @@ internal class Logger(
   }
 }
 
-private operator fun String.times(n: Int): String = repeat(n)
+internal operator fun String.times(n: Int): String = repeat(n)

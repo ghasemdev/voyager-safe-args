@@ -15,6 +15,7 @@ import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
+import com.parsuomash.voyager_safe_args_processor.utils.times
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
@@ -378,9 +379,10 @@ internal class VoyagerSafaArgsSymbolProcessor(
   }
 
   companion object {
-    val INDENTATION = " ".repeat(2)
-    val INDENTATION2x = " ".repeat(4)
-    val INDENTATION3x = " ".repeat(6)
+    private const val SPACE = " "
+    val INDENTATION = SPACE * 2
+    val INDENTATION2x = SPACE * 4
+    val INDENTATION3x = SPACE * 6
 
     private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
     private const val SCREEN_ANNOTATION_ANNOTATION = "Screen"
