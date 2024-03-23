@@ -1,6 +1,8 @@
 @file:Suppress("unused")
 
-package com.parsuomash.voyager_safe_args
+package com.parsuomash.voyager_safe_args.annotation
+
+import com.parsuomash.voyager_safe_args.utils.CodeGenerationVisibility
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.SOURCE)

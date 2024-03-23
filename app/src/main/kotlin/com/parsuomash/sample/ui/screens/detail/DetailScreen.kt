@@ -7,8 +7,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.parsuomash.voyager_safe_args.Screen
-import com.parsuomash.voyager_safe_args.ScreenKey
+import com.parsuomash.voyager_safe_args.annotation.Screen
+import com.parsuomash.voyager_safe_args.annotation.ScreenKey
 import kotlinx.serialization.Serializable
 
 @Serializable

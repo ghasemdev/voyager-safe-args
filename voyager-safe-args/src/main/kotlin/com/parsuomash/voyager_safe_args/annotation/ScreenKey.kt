@@ -1,4 +1,4 @@
-package com.parsuomash.voyager_safe_args
+package com.parsuomash.voyager_safe_args.annotation
 
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.SOURCE)

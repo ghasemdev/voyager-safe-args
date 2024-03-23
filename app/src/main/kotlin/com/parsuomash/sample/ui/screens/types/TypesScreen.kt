@@ -3,9 +3,9 @@ package com.parsuomash.sample.ui.screens.types
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import com.parsuomash.voyager_safe_args.CodeGenerationVisibility
-import com.parsuomash.voyager_safe_args.Screen
-import com.parsuomash.voyager_safe_args.ScreenKey
+import com.parsuomash.voyager_safe_args.utils.CodeGenerationVisibility
+import com.parsuomash.voyager_safe_args.annotation.Screen
+import com.parsuomash.voyager_safe_args.annotation.ScreenKey
 import java.io.Serializable
 
 data class JavaSerializableDataClass(val title: String = "", val price: Int = 0) : Serializable
@@ -45,6 +45,8 @@ internal fun TypesScreen(
   list6: List<Double>,
   set: Set<String>,
   map: Map<String, String>,
+  pair: Pair<Int, Float>,
+  color: android.graphics.Color,
 ) {
   Column {
     Text(text = "Login $javaDataClass")
@@ -72,5 +74,7 @@ internal fun TypesScreen(
     Text(text = "Login $list6")
     Text(text = "Login $set")
     Text(text = "Login $map")
+    Text(text = "Login $pair")
+    Text(text = "Login $color")
   }
 }

@@ -8,14 +8,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.graphics.toColor
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.parsuomash.sample.ui.screens.types.EnumData
 import com.parsuomash.sample.ui.screens.types.JavaSerializableDataClass
 import com.parsuomash.sample.ui.screens.types.KotlinSerializableDataClass
-import com.parsuomash.voyager_safe_args.CodeGenerationVisibility
-import com.parsuomash.voyager_safe_args.Screen
 import com.parsuomash.voyager_safe_args.TypeDestination
+import com.parsuomash.voyager_safe_args.annotation.Screen
+import com.parsuomash.voyager_safe_args.utils.CodeGenerationVisibility
 
 @Screen(visibility = CodeGenerationVisibility.PUBLIC)
 @Composable
@@ -55,6 +56,8 @@ internal fun HomeScreen() {
             list6 = listOf(1.0, 2.0, 3.0),
             set = setOf("lk", "sfd"),
             map = mapOf("a" to "1", "b" to "2"),
+            pair = 5 to 2.3F,
+            color = android.graphics.Color.BLACK.toColor()
           )
         )
         Log.d("DDDD", "${navigator.items}")
