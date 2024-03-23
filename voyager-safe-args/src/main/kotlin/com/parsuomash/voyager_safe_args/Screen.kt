@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.parsuomash.voyager_safe_args
 
 @Target(AnnotationTarget.FUNCTION)

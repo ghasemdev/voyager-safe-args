@@ -65,11 +65,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
       var screenKeyAnnotation: String? = null
       val paramsWithType = declaration.parameters.map {
         val typeDeclaration = it.type.resolve().declaration
+
         val name = it.name!!.getShortName()
-        val type = typeDeclaration.simpleName.getShortName()
+        val type = it.type.resolve().toString()
+        val simpleType = typeDeclaration.simpleName.getShortName()
         val packageNameType = typeDeclaration.packageName.asString()
 
-        var isSerializable = false
         for (annotation in it.annotations) {
           if (
             annotation.annotationType.resolve().declaration.packageName.asString() == "com.parsuomash.voyager_safe_args" &&
@@ -98,6 +99,8 @@ internal class VoyagerSafaArgsSymbolProcessor(
           }
         }
 
+        var isSerializable = false
+
         for (annotation in typeDeclaration.annotations) {
           if (
             annotation.annotationType.resolve().declaration.packageName.asString() == "kotlinx.serialization" &&
@@ -109,7 +112,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
         }
 
         if (packageNameType != "kotlin") {
-          importManager.append("$packageNameType.$type")
+          importManager.append("$packageNameType.$simpleType")
         }
 
         Triple(name, type, isSerializable)
@@ -179,7 +182,11 @@ internal class VoyagerSafaArgsSymbolProcessor(
           }
           hashCodeFormula.appendLine()
 
-          toStringFormula.append("$param=$$param")
+          if (type in TYPE_ARRAYS || type.contains("Array")) {
+            toStringFormula.append("$param=\${$param.joinToString(prefix = \"[\", postfix = \"]\")}")
+          } else {
+            toStringFormula.append("$param=$$param")
+          }
           if (index != paramsWithType.lastIndex) toStringFormula.append(", ")
         } else {
           classParams.append("${INDENTATION}val $param: $type")
@@ -408,5 +415,16 @@ internal class VoyagerSafaArgsSymbolProcessor(
     private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
     private const val SCREEN_ANNOTATION_ANNOTATION = "Screen"
     const val SCREEN_ANNOTATION_PACKAGE = "$PACKAGE_NAME.$SCREEN_ANNOTATION_ANNOTATION"
+
+    private val TYPE_ARRAYS = listOf(
+      "ByteArray",
+      "CharArray",
+      "ShortArray",
+      "IntArray",
+      "LongArray",
+      "FloatArray",
+      "DoubleArray",
+      "BooleanArray"
+    )
   }
 }

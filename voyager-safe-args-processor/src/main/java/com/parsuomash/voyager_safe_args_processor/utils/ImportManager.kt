@@ -2,7 +2,7 @@ package com.parsuomash.voyager_safe_args_processor.utils
 
 internal class ImportManager {
 
-  private val imports = mutableListOf<String>()
+  private val imports = mutableSetOf<String>()
 
   init {
     append(COMPOSABLE)
