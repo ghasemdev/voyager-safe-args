@@ -1,16 +1,18 @@
 package com.parsuomash.sample.ui.screens.types
 
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import com.parsuomash.voyager_safe_args.utils.CodeGenerationVisibility
 import com.parsuomash.voyager_safe_args.annotation.Screen
 import com.parsuomash.voyager_safe_args.annotation.ScreenKey
-import java.io.Serializable
+import com.parsuomash.voyager_safe_args.utils.CodeGenerationVisibility
+import kotlinx.serialization.Serializable
 
-data class JavaSerializableDataClass(val title: String = "", val price: Int = 0) : Serializable
+data class JavaSerializableDataClass(val title: String = "", val price: Int = 0) :
+  java.io.Serializable
 
-@kotlinx.serialization.Serializable
+@Serializable
 data class KotlinSerializableDataClass(val title: String = "", val price: Int = 0)
 
 enum class EnumData {
@@ -46,7 +48,7 @@ internal fun TypesScreen(
   set: Set<String>,
   map: Map<String, String>,
   pair: Pair<Int, Float>,
-  color: android.graphics.Color,
+  color: AndroidColor,
 ) {
   Column {
     Text(text = "Login $javaDataClass")

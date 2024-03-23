@@ -11,4 +11,4 @@ internal fun String.toCodeGenerationVisibility(): CodeGenerationVisibility = whe
   else -> error("Illegal State $this")
 }
 
-private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args.CodeGenerationVisibility"
+private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args.utils.CodeGenerationVisibility"

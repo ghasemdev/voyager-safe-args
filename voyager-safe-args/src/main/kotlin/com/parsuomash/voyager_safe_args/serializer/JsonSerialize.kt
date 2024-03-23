@@ -1,4 +1,4 @@
-package com.parsuomash.voyager_safe_args.utils
+package com.parsuomash.voyager_safe_args.serializer
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json

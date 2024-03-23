@@ -7,8 +7,10 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
@@ -25,16 +27,50 @@ internal class VoyagerSafaArgsSymbolProcessor(
   logger: KSPLogger
 ) : SymbolProcessor {
   private val logger = Logger(logger)
+
   private val screenAnnotationDeclarations = mutableListOf<KSFunctionDeclaration>()
   private val screenAnnotationVisitor = ScreenAnnotationVisitor(screenAnnotationDeclarations)
 
+  private val paramSerializerAnnotationDeclarations = mutableListOf<KSClassDeclaration>()
+  private val paramSerializeAnnotationVisitor =
+    ParamSerializerAnnotationVisitor(paramSerializerAnnotationDeclarations)
+
+  private val customSerializer = mutableMapOf<String, String>()
+
   override fun process(resolver: Resolver): List<KSAnnotated> {
+    resolver.paramSerializeAnnotationProcess()
     resolver.screenAnnotationProcess()
     return emptyList()
   }
 
   override fun finish() {
+    screenParamSerializerValidation()
     screenAnnotationFinish()
+  }
+
+  private fun screenParamSerializerValidation() {
+    paramSerializerAnnotationDeclarations.forEach { declaration ->
+      val className = declaration.simpleName.getShortName()
+      val packageName = declaration.packageName.asString()
+
+      if (declaration.classKind != ClassKind.OBJECT) {
+        logger.error(
+          """
+            |[$packageName.$className]
+            |   ScreenParamSerializer must be object!!
+            """.trimMargin()
+        )
+        return
+      }
+
+      val superTypes = declaration.superTypes.first()
+        .element?.typeArguments?.first()
+        ?.type?.resolve()?.declaration
+      val typeName = superTypes?.simpleName?.getShortName().orEmpty()
+      val typePackageName = superTypes?.packageName?.asString().orEmpty()
+
+      customSerializer["$typePackageName.$typeName"] = "$packageName.$className"
+    }
   }
 
   // TODO Refactor
@@ -61,85 +97,9 @@ internal class VoyagerSafaArgsSymbolProcessor(
         .annotations
         .getValue<String>("Screen", "name")
 
-      var screenKeyCount = 0
-      var screenKeyAnnotation: String? = null
-      val paramsWithType = declaration.parameters.map {
-        val typeDeclaration = it.type.resolve().declaration
-
-        val name = it.name!!.getShortName()
-        val type = it.type.resolve().toString()
-        val simpleType = typeDeclaration.simpleName.getShortName()
-        val packageNameType = typeDeclaration.packageName.asString()
-
-        for (annotation in it.annotations) {
-          if (
-            annotation.annotationType.resolve().declaration.packageName.asString() == "com.parsuomash.voyager_safe_args" &&
-            annotation.shortName.asString() == "ScreenKey"
-          ) {
-            if (packageNameType == "kotlin" && type in listOf("Int", "Long", "String")) {
-              screenKeyAnnotation = name
-              screenKeyCount++
-              if (screenKeyCount == 2) {
-                logger.error(
-                  """
-                    |[$packageName.$functionName]
-                    |   (@ScreenKey ...,@ScreenKey $name: $type, ...) You can only use one screenKey!!
-                  """.trimMargin()
-                )
-              }
-              break
-            } else {
-              logger.error(
-                """
-                  |[$packageName.$functionName]
-                  |   (@ScreenKey $name: $type, ...) screen key type must be Int, Long or String!!
-                  """.trimMargin()
-              )
-            }
-          }
-        }
-
-        var isSerializable = false
-
-        for (annotation in typeDeclaration.annotations) {
-          if (
-            annotation.annotationType.resolve().declaration.packageName.asString() == "kotlinx.serialization" &&
-            annotation.shortName.asString() == "Serializable"
-          ) {
-            isSerializable = true
-            break
-          }
-        }
-
-        if (packageNameType != "kotlin") {
-          importManager.append("$packageNameType.$simpleType")
-        }
-
-        Triple(name, type, isSerializable)
-      }
-
       val screenKey = declaration
         .annotations
         .getValue<String>("Screen", "key")
-
-      if (!screenKey.isNullOrBlank() && screenKeyCount != 0) {
-        logger.error(
-          """
-            |[$packageName.$functionName]
-            |   @Screen(key=...) and @ScreenKey not allow at the same time!!
-            """.trimMargin()
-        )
-      }
-      if (!screenKey.isNullOrBlank() || screenKeyCount != 0) {
-        importManager.append("cafe.adriel.voyager.core.screen.ScreenKey")
-      }
-
-      val isSerializableParamExist = paramsWithType.any { it.third }
-      if (isSerializableParamExist) {
-        importManager.append("androidx.compose.runtime.remember")
-        importManager.append("com.parsuomash.voyager_safe_args.encode")
-        importManager.append("com.parsuomash.voyager_safe_args.decode")
-      }
 
       val classParams = StringBuilder()
       val subclassParams = StringBuilder()
@@ -149,11 +109,82 @@ internal class VoyagerSafaArgsSymbolProcessor(
       val hashCodeFormula = StringBuilder()
       val toStringFormula = StringBuilder()
 
-      paramsWithType.forEachIndexed { index, (param, type, isSerializable) ->
-        if (isSerializable) {
+      var screenKeyCount = 0
+      var screenKeyAnnotation: String? = null
+      val isSerializable = BooleanArray(declaration.parameters.size) { false }
+
+      for ((index, ksValueParameter) in declaration.parameters.withIndex()) {
+        val typeDeclaration = ksValueParameter.type.resolve().declaration
+
+        val param = ksValueParameter.name!!.getShortName()
+        val type = ksValueParameter.type.resolve().toString()
+        val simpleType = typeDeclaration.simpleName.getShortName()
+        val packageNameType = typeDeclaration.packageName.asString()
+
+        for (annotation in ksValueParameter.annotations) {
+          if (
+            annotation.annotationType.resolve().declaration.packageName.asString() == ANNOTATION_PACKAGE_NAME &&
+            annotation.shortName.asString() == "ScreenKey"
+          ) {
+            if (packageNameType == "kotlin" && type in listOf("Int", "Long", "String")) {
+              screenKeyAnnotation = param
+              screenKeyCount++
+              if (screenKeyCount == 2) {
+                logger.error(
+                  """
+                     |[$packageName.$functionName]
+                     |   (@ScreenKey ...,@ScreenKey $param: $type, ...) You can only use one screenKey!!
+                     """.trimMargin()
+                )
+              }
+              break
+            } else {
+              logger.error(
+                """
+                   |[$packageName.$functionName]
+                   |   (@ScreenKey $param: $type, ...) screen key type must be Int, Long or String!!
+                   """.trimMargin()
+              )
+            }
+          }
+        }
+
+        for (annotation in typeDeclaration.annotations) {
+          if (
+            annotation.annotationType.resolve().declaration.packageName.asString() == "kotlinx.serialization" &&
+            annotation.shortName.asString() == "Serializable"
+          ) {
+            isSerializable[index] = true
+            break
+          }
+        }
+
+        if (packageNameType != "kotlin") {
+          importManager.append("$packageNameType.$simpleType")
+        }
+        val customSerializer = customSerializer["$packageNameType.$simpleType"]
+        if (customSerializer != null) {
+          importManager.append("$customSerializer.encode")
+          importManager.append("$customSerializer.decode")
+        }
+      }
+
+      val isSerializableParamExist = isSerializable.any { true }
+
+      for ((index, ksValueParameter) in declaration.parameters.withIndex()) {
+        val typeDeclaration = ksValueParameter.type.resolve().declaration
+
+        val param = ksValueParameter.name!!.getShortName()
+        val type = ksValueParameter.type.resolve().toString()
+        val simpleType = typeDeclaration.simpleName.getShortName()
+        val packageNameType = typeDeclaration.packageName.asString()
+
+        val customSerializer = customSerializer["$packageNameType.$simpleType"]
+
+        if (isSerializable[index] || customSerializer != null) {
           classParams.append("${INDENTATION}val $param: String")
           subclassParams.append("${INDENTATION}$param: $type")
-          if (index != paramsWithType.lastIndex) subclassParams.appendSeparator()
+          if (index != declaration.parameters.lastIndex) subclassParams.appendSeparator()
 
           equalsConditions.append("${INDENTATION2x}if ($param != other.$param) return false")
           equalsConditions.appendLine()
@@ -165,12 +196,16 @@ internal class VoyagerSafaArgsSymbolProcessor(
           }
           hashCodeFormula.appendLine()
 
-          toStringFormula.append("$param=\${$param.decode<$type>()}")
-          if (index != paramsWithType.lastIndex) toStringFormula.append(", ")
+          if (customSerializer != null) {
+            toStringFormula.append("$param=\${decode($param)}")
+          } else {
+            toStringFormula.append("$param=\${$param.decode<$type>()}")
+          }
+          if (index != declaration.parameters.lastIndex) toStringFormula.append(", ")
         } else if (isSerializableParamExist) {
           classParams.append("${INDENTATION}open val $param: $type")
           subclassParams.append("${INDENTATION}override val $param: $type")
-          if (index != paramsWithType.lastIndex) subclassParams.appendSeparator()
+          if (index != declaration.parameters.lastIndex) subclassParams.appendSeparator()
 
           equalsConditions.append("${INDENTATION2x}if ($param != other.$param) return false")
           equalsConditions.appendLine()
@@ -187,12 +222,15 @@ internal class VoyagerSafaArgsSymbolProcessor(
           } else {
             toStringFormula.append("$param=$$param")
           }
-          if (index != paramsWithType.lastIndex) toStringFormula.append(", ")
+          if (index != declaration.parameters.lastIndex) toStringFormula.append(", ")
         } else {
           classParams.append("${INDENTATION}val $param: $type")
         }
 
-        if (isSerializable) {
+        if (customSerializer != null) {
+          composableParams.append("${INDENTATION3x}$param = remember($param) { decode($param) }")
+          supperClassParams.append("${INDENTATION}$param = encode($param)")
+        } else if (isSerializable[index]) {
           composableParams.append("${INDENTATION3x}$param = remember($param) { $param.decode() }")
           supperClassParams.append("${INDENTATION}$param = $param.encode()")
         } else {
@@ -200,11 +238,29 @@ internal class VoyagerSafaArgsSymbolProcessor(
           supperClassParams.append("${INDENTATION}$param = $param")
         }
 
-        if (index != paramsWithType.lastIndex) {
+        if (index != declaration.parameters.lastIndex) {
           classParams.appendSeparator()
           supperClassParams.appendSeparator()
           composableParams.appendSeparator()
         }
+      }
+
+      if (!screenKey.isNullOrBlank() && screenKeyCount != 0) {
+        logger.error(
+          """
+            |[$packageName.$functionName]
+            |   @Screen(key=...) and @ScreenKey not allow at the same time!!
+            """.trimMargin()
+        )
+      }
+      if (!screenKey.isNullOrBlank() || screenKeyCount != 0) {
+        importManager.append("cafe.adriel.voyager.core.screen.ScreenKey")
+      }
+
+      if (isSerializableParamExist) {
+        importManager.append("androidx.compose.runtime.remember")
+        importManager.append("com.parsuomash.voyager_safe_args.serializer.encode")
+        importManager.append("com.parsuomash.voyager_safe_args.serializer.decode")
       }
 
       val screenVisibility = declaration
@@ -401,6 +457,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
       .forEach { it.accept(screenAnnotationVisitor, Unit) }
   }
 
+  private fun Resolver.paramSerializeAnnotationProcess() {
+    getSymbolsWithAnnotation(PARAM_SERIALIZE_ANNOTATION_PACKAGE)
+      .filter { it is KSClassDeclaration && it.validate() }
+      .forEach { it.accept(paramSerializeAnnotationVisitor, Unit) }
+  }
+
   private fun StringBuilder.appendSeparator() {
     append(",")
     appendLine()
@@ -413,8 +475,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
     val INDENTATION3x = SPACE * 6
 
     private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
+    private const val ANNOTATION_PACKAGE_NAME = "com.parsuomash.voyager_safe_args.annotation"
     private const val SCREEN_ANNOTATION_ANNOTATION = "Screen"
-    const val SCREEN_ANNOTATION_PACKAGE = "$PACKAGE_NAME.$SCREEN_ANNOTATION_ANNOTATION"
+    private const val PARAM_SERIALIZE_ANNOTATION_ANNOTATION = "ParamSerializer"
+    const val SCREEN_ANNOTATION_PACKAGE = "$ANNOTATION_PACKAGE_NAME.$SCREEN_ANNOTATION_ANNOTATION"
+    const val PARAM_SERIALIZE_ANNOTATION_PACKAGE =
+      "$ANNOTATION_PACKAGE_NAME.$PARAM_SERIALIZE_ANNOTATION_ANNOTATION"
 
     private val TYPE_ARRAYS = listOf(
       "ByteArray",
