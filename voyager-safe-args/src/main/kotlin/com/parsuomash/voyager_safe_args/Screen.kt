@@ -5,4 +5,5 @@ package com.parsuomash.voyager_safe_args
 annotation class Screen(
   val name: String = "",
   val key: String = "",
+  val visibility: CodeGenerationVisibility = CodeGenerationVisibility.FOLLOW_COMPOSABLE_FUNCTION
 )

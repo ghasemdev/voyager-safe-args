@@ -13,9 +13,11 @@ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
+import com.parsuomash.voyager_safe_args_processor.utils.CodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
 import com.parsuomash.voyager_safe_args_processor.utils.times
+import com.parsuomash.voyager_safe_args_processor.utils.toCodeGenerationVisibility
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
@@ -40,6 +42,16 @@ internal class VoyagerSafaArgsSymbolProcessor(
     screenAnnotationDeclarations.forEach { declaration ->
       val functionName = declaration.simpleName.getShortName()
       val packageName = declaration.packageName.asString()
+
+      if (declaration.getVisibility() == Visibility.PRIVATE) {
+        logger.error(
+          """
+              |[$packageName.$functionName]
+              |   visibility of function must be internal or public!!
+              """.trimMargin()
+        )
+        return
+      }
 
       val importManager = ImportManager().apply {
         append("$packageName.$functionName")
@@ -188,17 +200,16 @@ internal class VoyagerSafaArgsSymbolProcessor(
         }
       }
 
-      val isInternal = when (declaration.getVisibility()) {
-        Visibility.INTERNAL -> true
-        Visibility.PUBLIC -> false
-        else -> {
-          logger.error(
-            """
-              |[$packageName.$functionName]
-              |   visibility of function must be internal or public!!
-              """.trimMargin()
-          )
-          return
+      val screenVisibility = declaration
+        .annotations
+        .getValue("Screen", "visibility")!!
+        .toCodeGenerationVisibility()
+
+      val isInternal = when (screenVisibility) {
+        CodeGenerationVisibility.INTERNAL -> true
+        CodeGenerationVisibility.PUBLIC -> false
+        CodeGenerationVisibility.FOLLOW_COMPOSABLE_FUNCTION -> {
+          declaration.getVisibility() == Visibility.INTERNAL
         }
       }
       val visibility = if (isInternal) "internal " else ""
@@ -360,6 +371,16 @@ internal class VoyagerSafaArgsSymbolProcessor(
     ?.arguments
     ?.withName(argumentName)
     ?.value as? T
+
+  @JvmName("getValueAsString")
+  private fun Sequence<KSAnnotation>.getValue(
+    annotationName: String,
+    argumentName: String
+  ): String? = withName(annotationName)
+    ?.arguments
+    ?.withName(argumentName)
+    ?.value
+    ?.toString()
 
   private fun Sequence<KSAnnotation>.withName(annotationName: String): KSAnnotation? =
     firstOrNull { it.shortName.getShortName() == annotationName }

@@ -1,13 +1,14 @@
-package com.parsuomash.sample.ui.screens.login
+package com.parsuomash.sample.ui.screens.types
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.parsuomash.voyager_safe_args.Screen
+import java.io.Serializable
 
-data class TypesData(val title: String = "", val price: Int = 0)
+data class TypesData(val title: String = "", val price: Int = 0) : Serializable
 
-@Screen
+@Screen(key = "1234")
 @Composable
 internal fun TypesScreen(
   id: String,

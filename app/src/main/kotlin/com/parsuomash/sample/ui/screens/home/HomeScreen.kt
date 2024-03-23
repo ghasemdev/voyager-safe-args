@@ -9,13 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.parsuomash.sample.ui.screens.detail.Detail
-import com.parsuomash.voyager_safe_args.DetailDestination
+import com.parsuomash.sample.ui.screens.types.TypesData
+import com.parsuomash.voyager_safe_args.CodeGenerationVisibility
 import com.parsuomash.voyager_safe_args.Screen
+import com.parsuomash.voyager_safe_args.TypesScreen
 
-@Screen(key = "1234")
+@Screen(visibility = CodeGenerationVisibility.PUBLIC)
 @Composable
-fun HomeScreen() {
+internal fun HomeScreen() {
   val navigator = LocalNavigator.currentOrThrow
 
   Box(
@@ -25,9 +26,14 @@ fun HomeScreen() {
     Button(
       onClick = {
         navigator.push(
-          DetailDestination(
-            id = 1,
-            detail = Detail(title = "some title", price = 1000)
+          TypesScreen(
+            id = "quod",
+            id2 = 8236,
+            id3 = false,
+            data = TypesData(title = "causae", price = 6431),
+            id4 = 4.5f,
+            id5 = 6.7,
+            id6 = 1974
           )
         )
       }
