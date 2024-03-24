@@ -9,9 +9,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.util.Consumer
+import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.transitions.SlideTransition
 import com.parsuomash.sample.ui.screens.detail.Detail
 import com.parsuomash.sample.ui.theme.VoyagerSafeArgsTheme
@@ -33,7 +40,7 @@ class MainActivity : ComponentActivity() {
         ) {
           Navigator(HomeScreen) { navigator ->
             SlideTransition(navigator)
-            HandleIntent(this, navigator)
+            HandleIntent()
           }
         }
       }
@@ -41,36 +48,58 @@ class MainActivity : ComponentActivity() {
   }
 
   @Composable
-  private fun HandleIntent(context: MainActivity, navigator: Navigator) {
+  private fun HandleIntent() {
+    var isIntentServe by rememberSaveable { mutableStateOf(false) }
+    val componentActivity = LocalContext.current as ComponentActivity
+    val navigator = LocalNavigator.currentOrThrow
+
     LaunchedEffect(Unit) {
       callbackFlow<Intent> {
-        val componentActivity = context as ComponentActivity
         val currentIntent = componentActivity.intent
         if (currentIntent?.data != null) {
+          isIntentServe = false
           trySend(currentIntent)
         }
         val consumer = Consumer<Intent> { trySend(it) }
         componentActivity.addOnNewIntentListener(consumer)
         awaitClose { componentActivity.removeOnNewIntentListener(consumer) }
-      }.collectLatest { handleIntentAction(it, navigator) }
+      }.collectLatest {
+        if (!isIntentServe) {
+          handleIntentAction(it, navigator)
+          componentActivity.clearIntent()
+          isIntentServe = true
+        }
+      }
     }
   }
 
-  private fun handleIntentAction(intent: Intent, navigator: Navigator) {
-    if (intent.dataString?.contains("voyager://details") == true) {
+  private fun ComponentActivity.clearIntent() {
+    if (intent != null) {
+      intent.data = null
+      intent.flags = 0
+      intent.action = ""
+      intent.putExtras(Bundle())
+      intent = null
+    }
+  }
+
+  // adb shell am start -a android.intent.action.VIEW -d "voyager://details/20/?title=hello\&price=234" com.parsuomash.sample
+  private fun handleIntentAction(
+    intent: Intent,
+    navigator: Navigator,
+  ) {
+    if (intent.dataString?.contains("https://www.voyager.com/details") == true) {
       val matchResult = pattern.find(intent.dataString!!)
       if (matchResult != null) {
-        val id = matchResult.groupValues[1]
-        val title = matchResult.groupValues[2]
-        val price = matchResult.groupValues[3]
+        val id = matchResult.groups["id"]?.value ?: return
+        val title = matchResult.groups["title"]?.value ?: return
+        val price = matchResult.groups["price"]?.value ?: return
 
-        navigator.replaceAll(
-          listOf(
-            HomeScreen,
-            DetailDestination(
-              id = id.toLong(),
-              detail = Detail(title = title, price = price.toInt())
-            )
+        navigator.popAll()
+        navigator.push(
+          DetailDestination(
+            id = id.toLong(),
+            detail = Detail(title = title, price = price.toInt())
           )
         )
       }
@@ -78,6 +107,7 @@ class MainActivity : ComponentActivity() {
   }
 
   companion object {
-    val pattern = Regex("voyager://details/(.*?)/\\?title=(.*?)&price=(.*?)")
+    val pattern =
+      "https://www.voyager.com/details/(?<id>\\w+)/\\?title=(?<title>\\w+)&price=(?<price>\\w+)".toRegex()
   }
 }
