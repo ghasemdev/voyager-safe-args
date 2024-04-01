@@ -15,6 +15,7 @@ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
+import com.parsuomash.voyager_safe_args_processor.VisualizationAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.utils.CodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
@@ -35,17 +36,30 @@ internal class VoyagerSafaArgsSymbolProcessor(
   private val paramSerializeAnnotationVisitor =
     ParamSerializerAnnotationVisitor(paramSerializerAnnotationDeclarations)
 
+  private val visualizationAnnotationDeclarations = mutableListOf<KSFunctionDeclaration>()
+  private val visualizationAnnotationVisitor =
+    VisualizationAnnotationVisitor(visualizationAnnotationDeclarations)
+
   private val customSerializer = mutableMapOf<String, String>()
 
   override fun process(resolver: Resolver): List<KSAnnotated> {
+    resolver.visualizationAnnotationProcess()
     resolver.paramSerializeAnnotationProcess()
     resolver.screenAnnotationProcess()
     return emptyList()
   }
 
   override fun finish() {
+    visualizationValidation()
     screenParamSerializerValidation()
     screenAnnotationFinish()
+  }
+
+  private fun visualizationValidation() {
+    visualizationAnnotationDeclarations.forEach { declaration ->
+      val className = declaration.simpleName.getShortName()
+      val packageName = declaration.packageName.asString()
+    }
   }
 
   private fun screenParamSerializerValidation() {
@@ -463,6 +477,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
       .forEach { it.accept(paramSerializeAnnotationVisitor, Unit) }
   }
 
+  private fun Resolver.visualizationAnnotationProcess() {
+    getSymbolsWithAnnotation(VISUALIZATION_ANNOTATION_PACKAGE)
+      .filter { it is KSClassDeclaration && it.validate() }
+      .forEach { it.accept(visualizationAnnotationVisitor, Unit) }
+  }
+
   private fun StringBuilder.appendSeparator() {
     append(",")
     appendLine()
@@ -476,11 +496,14 @@ internal class VoyagerSafaArgsSymbolProcessor(
 
     private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
     private const val ANNOTATION_PACKAGE_NAME = "com.parsuomash.voyager_safe_args.annotation"
-    private const val SCREEN_ANNOTATION_ANNOTATION = "Screen"
-    private const val PARAM_SERIALIZE_ANNOTATION_ANNOTATION = "ParamSerializer"
-    const val SCREEN_ANNOTATION_PACKAGE = "$ANNOTATION_PACKAGE_NAME.$SCREEN_ANNOTATION_ANNOTATION"
-    const val PARAM_SERIALIZE_ANNOTATION_PACKAGE =
-      "$ANNOTATION_PACKAGE_NAME.$PARAM_SERIALIZE_ANNOTATION_ANNOTATION"
+    private const val SCREEN_ANNOTATION = "Screen"
+    private const val PARAM_SERIALIZE_ANNOTATION = "ParamSerializer"
+    private const val VISUALIZATION_ANNOTATION = "Visualization"
+    private const val SCREEN_ANNOTATION_PACKAGE = "$ANNOTATION_PACKAGE_NAME.$SCREEN_ANNOTATION"
+    private const val PARAM_SERIALIZE_ANNOTATION_PACKAGE =
+      "$ANNOTATION_PACKAGE_NAME.$PARAM_SERIALIZE_ANNOTATION"
+    private const val VISUALIZATION_ANNOTATION_PACKAGE =
+      "$ANNOTATION_PACKAGE_NAME.$VISUALIZATION_ANNOTATION"
 
     private val TYPE_ARRAYS = listOf(
       "ByteArray",
