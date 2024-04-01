@@ -15,12 +15,14 @@ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
-import com.parsuomash.voyager_safe_args_processor.VisualizationAnnotationVisitor
+import com.parsuomash.voyager_safe_args_processor.visitor.VisualizationAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.utils.CodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
 import com.parsuomash.voyager_safe_args_processor.utils.times
 import com.parsuomash.voyager_safe_args_processor.utils.toCodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.visitor.ParamSerializerAnnotationVisitor
+import com.parsuomash.voyager_safe_args_processor.visitor.ScreenAnnotationVisitor
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
