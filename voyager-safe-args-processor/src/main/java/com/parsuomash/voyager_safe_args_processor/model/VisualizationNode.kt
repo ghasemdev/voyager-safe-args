@@ -7,48 +7,14 @@ internal data class VisualizationNode(
   val id: String = "",
   val name: String = "",
   val graph: String = "",
-  val destinations: Array<String> = emptyArray(),
-  val includes: Array<String> = emptyArray(),
+  val destinations: List<String> = emptyList(),
+  val includes: List<String> = emptyList(),
   val isOptional: Boolean = false,
   val isStart: Boolean = false,
   val isEnd: Boolean = false,
-) {
-  override fun equals(other: Any?): Boolean {
-    if (this === other) return true
-    if (javaClass != other?.javaClass) return false
-
-    other as VisualizationNode
-
-    if (id != other.id) return false
-    if (name != other.name) return false
-    if (graph != other.graph) return false
-    if (!destinations.contentEquals(other.destinations)) return false
-    if (!includes.contentEquals(other.includes)) return false
-    if (isOptional != other.isOptional) return false
-    if (isStart != other.isStart) return false
-    if (isEnd != other.isEnd) return false
-
-    return true
-  }
-
-  override fun hashCode(): Int {
-    var result = id.hashCode()
-    result = 31 * result + name.hashCode()
-    result = 31 * result + graph.hashCode()
-    result = 31 * result + destinations.contentHashCode()
-    result = 31 * result + includes.contentHashCode()
-    result = 31 * result + isOptional.hashCode()
-    result = 31 * result + isStart.hashCode()
-    result = 31 * result + isEnd.hashCode()
-    return result
-  }
-}
+)
 
 internal fun KSFunctionDeclaration.getVisualizationNode(): VisualizationNode {
-  val id = this
-    .annotations
-    .getValue<String>("Visualization", "id")
-
   val name = this
     .annotations
     .getValue<String>("Visualization", "name")
@@ -59,11 +25,15 @@ internal fun KSFunctionDeclaration.getVisualizationNode(): VisualizationNode {
 
   val destinations = this
     .annotations
-    .getValue<Array<String>>("Visualization", "destinations")
+    .getValue("Visualization", "destinations")
+    ?.removePrefix("[")
+    ?.removeSuffix("]")
 
   val includes = this
     .annotations
-    .getValue<Array<String>>("Visualization", "includes")
+    .getValue("Visualization", "includes")
+    ?.removePrefix("[")
+    ?.removeSuffix("]")
 
   val isOptional = this
     .annotations
@@ -78,11 +48,19 @@ internal fun KSFunctionDeclaration.getVisualizationNode(): VisualizationNode {
     .getValue<Boolean>("Visualization", "isEnd")
 
   return VisualizationNode(
-    id = id.orEmpty(),
-    name = name.orEmpty(),
+    id = simpleName.getShortName(),
+    name = if (name.isNullOrBlank()) simpleName.getShortName() else name,
     graph = graph.orEmpty(),
-    destinations = destinations ?: emptyArray(),
-    includes = includes ?: emptyArray(),
+    destinations = if (!destinations.isNullOrBlank()) {
+      destinations.split(", ")
+    } else {
+      emptyList()
+    },
+    includes = if (!includes.isNullOrBlank()) {
+      includes.split(", ")
+    } else {
+      emptyList()
+    },
     isOptional = isOptional ?: false,
     isStart = isStart ?: false,
     isEnd = isEnd ?: false

@@ -14,6 +14,7 @@ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
 import com.parsuomash.voyager_safe_args_processor.model.CodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.model.VisualizationNode
 import com.parsuomash.voyager_safe_args_processor.model.VoyagerSafaArgsConfig
 import com.parsuomash.voyager_safe_args_processor.model.getVisualizationNode
 import com.parsuomash.voyager_safe_args_processor.model.toCodeGenerationVisibility
@@ -24,6 +25,7 @@ import com.parsuomash.voyager_safe_args_processor.utils.times
 import com.parsuomash.voyager_safe_args_processor.visitor.ParamSerializerAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.visitor.ScreenAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.visitor.VisualizationAnnotationVisitor
+import java.io.File
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
@@ -59,26 +61,155 @@ internal class VoyagerSafaArgsSymbolProcessor(
   }
 
   private fun visualizationValidation() {
-    val strings = StringBuilder()
+    val nodes = mutableListOf<VisualizationNode>()
     visualizationAnnotationDeclarations.forEach { declaration ->
-      val functionName = declaration.simpleName.getShortName()
-      val packageName = declaration.packageName.asString()
-      val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}.txt"
-
       val visualizationNode = declaration.getVisualizationNode()
+      nodes += visualizationNode
+    }
 
-      strings.append("$packageName $functionName $visualizationNode")
-      strings.appendLine()
+    val nodesSubgraph = nodes.filter { it.graph.isNotBlank() }.groupBy { it.graph }
+    val nodesSubgraphString = buildString {
+      nodesSubgraph.forEach { (subgraph, visualizationNodes) ->
+        append("${INDENTATION2x}subgraph $subgraph\n")
+        visualizationNodes.forEach {
+          append("${INDENTATION4x}${it.id}(${it.name})\n")
+        }
+        append("${INDENTATION2x}end\n\n")
+      }
+    }
 
+    val isStartNodeExist = nodes.any { it.isStart }
+    val isEndNodeExist = nodes.any { it.isEnd }
+    val nodesWithoutSubgraph = nodes.filter { it.graph.isBlank() }
+    val nodesWithoutSubgraphString = buildString {
+      nodesWithoutSubgraph.forEach {
+        append("${INDENTATION2x}${it.id}(${it.name})\n")
+      }
+      appendLine()
+      if (isStartNodeExist) {
+        append("${INDENTATION2x}Start(( ))\n")
+      }
+      if (isEndNodeExist) {
+        append("${INDENTATION2x}End(( ))\n")
+      }
+    }
+
+    val nodesNavigation = buildString {
+      nodes.forEach { node ->
+        if (node.isStart) {
+          append("${INDENTATION2x}Start --> ${node.id}\n")
+        }
+        if (node.isEnd) {
+          append("${INDENTATION2x}${node.id} --> End\n")
+        }
+        node.includes.forEach {
+          append("${INDENTATION2x}${node.id} -.- $it\n")
+        }
+        node.destinations.forEach {
+          val navigationSign = if (it.startsWith("x->")) "-- fa:fa-ban -->" else "-->"
+          val destination = it.removePrefix("x->")
+          append("${INDENTATION2x}${node.id} $navigationSign $destination\n")
+        }
+      }
+    }
+
+    val optionalNodes = nodes.filter { it.isOptional }.joinToString(",") { it.id }
+    val styles = buildString {
+      append("${INDENTATION2x}classDef start_des stroke:#28e059;\n")
+      append("${INDENTATION2x}classDef end_des stroke:#de2333;\n")
+      append("${INDENTATION2x}classDef optional stroke:#ffffff, stroke-dasharray: 5 4;\n")
+      append("${INDENTATION2x}class Start start_des;\n")
+      append("${INDENTATION2x}class End end_des;\n")
+      append("${INDENTATION2x}class $optionalNodes optional;\n")
+    }
+
+    val fileName = "${config.moduleName.toUpperCamelCase()}NavigationFlow"
+    writeMMD(fileName, nodesSubgraphString, nodesWithoutSubgraphString, nodesNavigation, styles)
+    writeMD(fileName, nodesSubgraphString, nodesWithoutSubgraphString, nodesNavigation, styles)
+  }
+
+  private fun writeMMD(
+    fileName: String,
+    nodesSubgraphString: String,
+    nodesWithoutSubgraphString: String,
+    nodesNavigation: String,
+    styles: String
+  ) {
+    if (config.markdownMermaidGraph != null) {
+      File(config.markdownMermaidGraph, "$fileName.md")
+        .writeBytes(
+          """
+          |flowchart LR
+          |$nodesSubgraphString
+          |$nodesWithoutSubgraphString
+          |$nodesNavigation
+          |$styles
+          """.trimMargin().toByteArray()
+        )
+    } else {
       codeGenerator.createNewFile(
         dependencies = Dependencies(
           aggregating = true,
           sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
         ),
-        packageName = PACKAGE_NAME,
-        fileName = fileName
+        packageName = "",
+        fileName = fileName,
+        extensionName = "mmd"
       ).use { stream ->
-        stream.write(strings.toString().toByteArray())
+        stream.write(
+          """
+          |flowchart LR
+          |$nodesSubgraphString
+          |$nodesWithoutSubgraphString
+          |$nodesNavigation
+          |$styles
+          """.trimMargin().toByteArray()
+        )
+      }
+    }
+  }
+
+  private fun writeMD(
+    fileName: String,
+    nodesSubgraphString: String,
+    nodesWithoutSubgraphString: String,
+    nodesNavigation: String,
+    styles: String
+  ) {
+    if (config.mermaidGraph != null) {
+      File(config.mermaidGraph, "$fileName.mmd")
+        .writeBytes(
+          """
+            |```mermaid
+            |flowchart LR
+            |$nodesSubgraphString
+            |$nodesWithoutSubgraphString
+            |$nodesNavigation
+            |$styles
+            |```
+          """.trimMargin().toByteArray()
+        )
+    } else {
+      codeGenerator.createNewFile(
+        dependencies = Dependencies(
+          aggregating = true,
+          sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
+        ),
+        packageName = "",
+        fileName = fileName,
+        extensionName = "mmd"
+      ).use { stream ->
+        stream.write(
+          """
+            |```mermaid
+            |flowchart LR
+            |$nodesSubgraphString
+            |$nodesWithoutSubgraphString
+            |$nodesNavigation
+            |$styles
+            |```
+          """.trimMargin().toByteArray()
+        )
       }
     }
   }
@@ -476,7 +607,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
 
   private fun Resolver.visualizationAnnotationProcess() {
     getSymbolsWithAnnotation(VISUALIZATION_ANNOTATION_PACKAGE)
-      .filter { it is KSClassDeclaration && it.validate() }
+      .filter { it is KSFunctionDeclaration && it.validate() }
       .forEach { it.accept(visualizationAnnotationVisitor, Unit) }
   }
 
@@ -490,6 +621,7 @@ internal class VoyagerSafaArgsSymbolProcessor(
     val INDENTATION = SPACE * 2
     val INDENTATION2x = SPACE * 4
     val INDENTATION3x = SPACE * 6
+    val INDENTATION4x = SPACE * 8
 
     private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
     private const val ANNOTATION_PACKAGE_NAME = "com.parsuomash.voyager_safe_args.annotation"

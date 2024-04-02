@@ -4,40 +4,52 @@ import androidx.compose.runtime.Composable
 import com.parsuomash.voyager_safe_args.annotation.Visualization
 
 @Visualization(
-  id = "LoginRegister",
+  name = "Register",
   graph = "Login",
   destinations = ["LoginOTP"],
   isOptional = true,
   isStart = true
 )
+@Composable
+fun LoginRegister() {
+}
+
 @Visualization(
-  id = "IssueRegister",
+  name = "Register",
   graph = "IssueCertificate",
   destinations = ["x->IssueOTP"],
   isOptional = true
 )
 @Composable
-fun Register() {
+fun IssueRegister() {
 }
 
 @Visualization(
-  id = "LoginOTP",
+  name = "OTP",
   graph = "Login",
   destinations = ["x->Dashboard"],
 )
+@Composable
+fun LoginOTP() {
+}
+
 @Visualization(
-  id = "IssueOTP",
+  name = "OTP",
   graph = "IssueCertificate",
   destinations = ["x->Farashenasa"],
   isOptional = true
 )
+@Composable
+fun IssueOTP() {
+}
+
 @Visualization(
-  id = "RevokeOTP",
+  name = "OTP",
   graph = "RevokeCertificate",
   destinations = ["x->Certificates"]
 )
 @Composable
-fun OTP() {
+fun RevokeOTP() {
 }
 
 @Visualization(
@@ -78,7 +90,7 @@ fun Issue() {
 
 @Visualization(
   name = "fa:fa-house Dashboard",
-  destinations = ["SignPDF", "Activities"],
+  destinations = ["Term", "Issue", "Activities"],
   includes = ["Profile", "Certificates"],
   isStart = true
 )
