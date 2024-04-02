@@ -1,4 +1,4 @@
-package com.parsuomash.voyager_safe_args_processor.model
+package com.parsuomash.voyager_safe_args_processor.utils
 
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSValueArgument

@@ -1,6 +1,7 @@
 package com.parsuomash.voyager_safe_args_processor.model
 
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.parsuomash.voyager_safe_args_processor.utils.getValue
 
 internal data class VisualizationNode(
   val id: String = "",

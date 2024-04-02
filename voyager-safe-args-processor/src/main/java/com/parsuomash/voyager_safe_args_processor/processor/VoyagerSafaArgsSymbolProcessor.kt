@@ -1,4 +1,4 @@
-package com.parsuomash.voyager_safe_args_processor.internal
+package com.parsuomash.voyager_safe_args_processor.processor
 
 import com.fleshgrinder.extensions.kotlin.toUpperCamelCase
 import com.google.devtools.ksp.getVisibility
@@ -13,13 +13,14 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
-import com.parsuomash.voyager_safe_args_processor.model.getValue
+import com.parsuomash.voyager_safe_args_processor.model.CodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.model.VoyagerSafaArgsConfig
 import com.parsuomash.voyager_safe_args_processor.model.getVisualizationNode
-import com.parsuomash.voyager_safe_args_processor.utils.CodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.model.toCodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
+import com.parsuomash.voyager_safe_args_processor.utils.getValue
 import com.parsuomash.voyager_safe_args_processor.utils.times
-import com.parsuomash.voyager_safe_args_processor.utils.toCodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.visitor.ParamSerializerAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.visitor.ScreenAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.visitor.VisualizationAnnotationVisitor
@@ -58,13 +59,27 @@ internal class VoyagerSafaArgsSymbolProcessor(
   }
 
   private fun visualizationValidation() {
+    val strings = StringBuilder()
     visualizationAnnotationDeclarations.forEach { declaration ->
       val functionName = declaration.simpleName.getShortName()
       val packageName = declaration.packageName.asString()
+      val fileName = "${config.moduleName.toUpperCamelCase()}${functionName}.txt"
 
       val visualizationNode = declaration.getVisualizationNode()
 
-      logger.logging("$packageName $functionName $visualizationNode")
+      strings.append("$packageName $functionName $visualizationNode")
+      strings.appendLine()
+
+      codeGenerator.createNewFile(
+        dependencies = Dependencies(
+          aggregating = true,
+          sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
+        ),
+        packageName = PACKAGE_NAME,
+        fileName = fileName
+      ).use { stream ->
+        stream.write(strings.toString().toByteArray())
+      }
     }
   }
 
