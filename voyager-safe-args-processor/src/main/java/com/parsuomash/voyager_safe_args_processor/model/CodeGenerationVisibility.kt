@@ -1,4 +1,4 @@
-package com.parsuomash.voyager_safe_args_processor.utils
+package com.parsuomash.voyager_safe_args_processor.model
 
 internal enum class CodeGenerationVisibility {
   INTERNAL, PUBLIC, FOLLOW_COMPOSABLE_FUNCTION

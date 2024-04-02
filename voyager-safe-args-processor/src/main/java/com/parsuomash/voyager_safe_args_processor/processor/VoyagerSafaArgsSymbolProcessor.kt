@@ -1,4 +1,4 @@
-package com.parsuomash.voyager_safe_args_processor.internal
+package com.parsuomash.voyager_safe_args_processor.processor
 
 import com.fleshgrinder.extensions.kotlin.toUpperCamelCase
 import com.google.devtools.ksp.getVisibility
@@ -9,17 +9,22 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
-import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
-import com.parsuomash.voyager_safe_args_processor.utils.CodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.model.CodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.model.VisualizationNode
+import com.parsuomash.voyager_safe_args_processor.model.VoyagerSafaArgsConfig
+import com.parsuomash.voyager_safe_args_processor.model.getVisualizationNode
+import com.parsuomash.voyager_safe_args_processor.model.toCodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
+import com.parsuomash.voyager_safe_args_processor.utils.getValue
 import com.parsuomash.voyager_safe_args_processor.utils.times
-import com.parsuomash.voyager_safe_args_processor.utils.toCodeGenerationVisibility
+import com.parsuomash.voyager_safe_args_processor.visitor.ParamSerializerAnnotationVisitor
+import com.parsuomash.voyager_safe_args_processor.visitor.ScreenAnnotationVisitor
+import com.parsuomash.voyager_safe_args_processor.visitor.VisualizationAnnotationVisitor
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
@@ -35,17 +40,108 @@ internal class VoyagerSafaArgsSymbolProcessor(
   private val paramSerializeAnnotationVisitor =
     ParamSerializerAnnotationVisitor(paramSerializerAnnotationDeclarations)
 
+  private val visualizationAnnotationDeclarations = mutableListOf<KSFunctionDeclaration>()
+  private val visualizationAnnotationVisitor =
+    VisualizationAnnotationVisitor(visualizationAnnotationDeclarations)
+
   private val customSerializer = mutableMapOf<String, String>()
 
   override fun process(resolver: Resolver): List<KSAnnotated> {
+    resolver.visualizationAnnotationProcess()
     resolver.paramSerializeAnnotationProcess()
     resolver.screenAnnotationProcess()
     return emptyList()
   }
 
   override fun finish() {
+    visualizationValidation()
     screenParamSerializerValidation()
     screenAnnotationFinish()
+  }
+
+  private fun visualizationValidation() {
+    val nodes = mutableListOf<VisualizationNode>()
+    visualizationAnnotationDeclarations.forEach { declaration ->
+      val visualizationNode = declaration.getVisualizationNode()
+      nodes += visualizationNode
+    }
+
+    val nodesSubgraph = nodes.filter { it.graph.isNotBlank() }.groupBy { it.graph }
+    val nodesSubgraphString = buildString {
+      nodesSubgraph.forEach { (subgraph, visualizationNodes) ->
+        append("${INDENTATION2x}subgraph $subgraph\n")
+        visualizationNodes.forEach {
+          append("${INDENTATION4x}${it.id}(${it.name})\n")
+        }
+        append("${INDENTATION2x}end\n\n")
+      }
+    }
+
+    val isStartNodeExist = nodes.any { it.isStart }
+    val isEndNodeExist = nodes.any { it.isEnd }
+    val nodesWithoutSubgraph = nodes.filter { it.graph.isBlank() }
+    val nodesWithoutSubgraphString = buildString {
+      nodesWithoutSubgraph.forEach {
+        append("${INDENTATION2x}${it.id}(${it.name})\n")
+      }
+      appendLine()
+      if (isStartNodeExist) {
+        append("${INDENTATION2x}Start(( ))\n")
+      }
+      if (isEndNodeExist) {
+        append("${INDENTATION2x}End(( ))\n")
+      }
+    }
+
+    val nodesNavigation = buildString {
+      nodes.forEach { node ->
+        if (node.isStart) {
+          append("${INDENTATION2x}Start --> ${node.id}\n")
+        }
+        if (node.isEnd) {
+          append("${INDENTATION2x}${node.id} --> End\n")
+        }
+        node.includes.forEach {
+          append("${INDENTATION2x}${node.id} -.- $it\n")
+        }
+        node.destinations.forEach {
+          val navigationSign = if (it.startsWith("x->")) "-- fa:fa-ban -->" else "-->"
+          val destination = it.removePrefix("x->")
+          append("${INDENTATION2x}${node.id} $navigationSign $destination\n")
+        }
+      }
+    }
+
+    val optionalNodes = nodes.filter { it.isOptional }.joinToString(",") { it.id }
+    val styles = buildString {
+      append("${INDENTATION2x}classDef start_des stroke:#28e059;\n")
+      append("${INDENTATION2x}classDef end_des stroke:#de2333;\n")
+      append("${INDENTATION2x}classDef optional stroke:#ffffff, stroke-dasharray: 5 4;\n")
+      append("${INDENTATION2x}class Start start_des;\n")
+      append("${INDENTATION2x}class End end_des;\n")
+      append("${INDENTATION2x}class $optionalNodes optional;\n")
+    }
+
+    val fileName = "${config.moduleName.toUpperCamelCase()}NavigationFlow"
+    codeGenerator.createNewFile(
+      dependencies = Dependencies(
+        aggregating = true,
+        sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
+      ),
+      packageName = "",
+      fileName = fileName,
+      extensionName = "mmd"
+    ).use { stream ->
+      stream.write(
+        """
+          |flowchart LR
+          |$nodesSubgraphString
+          |$nodesWithoutSubgraphString
+          |$nodesNavigation
+          |$styles
+          """.trimMargin().toByteArray()
+      )
+    }
   }
 
   private fun screenParamSerializerValidation() {
@@ -427,30 +523,6 @@ internal class VoyagerSafaArgsSymbolProcessor(
     }
   }
 
-  private inline fun <reified T> Sequence<KSAnnotation>.getValue(
-    annotationName: String,
-    argumentName: String
-  ): T? = withName(annotationName)
-    ?.arguments
-    ?.withName(argumentName)
-    ?.value as? T
-
-  @JvmName("getValueAsString")
-  private fun Sequence<KSAnnotation>.getValue(
-    annotationName: String,
-    argumentName: String
-  ): String? = withName(annotationName)
-    ?.arguments
-    ?.withName(argumentName)
-    ?.value
-    ?.toString()
-
-  private fun Sequence<KSAnnotation>.withName(annotationName: String): KSAnnotation? =
-    firstOrNull { it.shortName.getShortName() == annotationName }
-
-  private fun List<KSValueArgument>.withName(argumentName: String): KSValueArgument? =
-    firstOrNull { it.name?.getShortName() == argumentName }
-
   private fun Resolver.screenAnnotationProcess() {
     getSymbolsWithAnnotation(SCREEN_ANNOTATION_PACKAGE)
       .filter { it is KSFunctionDeclaration && it.validate() }
@@ -463,6 +535,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
       .forEach { it.accept(paramSerializeAnnotationVisitor, Unit) }
   }
 
+  private fun Resolver.visualizationAnnotationProcess() {
+    getSymbolsWithAnnotation(VISUALIZATION_ANNOTATION_PACKAGE)
+      .filter { it is KSFunctionDeclaration && it.validate() }
+      .forEach { it.accept(visualizationAnnotationVisitor, Unit) }
+  }
+
   private fun StringBuilder.appendSeparator() {
     append(",")
     appendLine()
@@ -473,14 +551,18 @@ internal class VoyagerSafaArgsSymbolProcessor(
     val INDENTATION = SPACE * 2
     val INDENTATION2x = SPACE * 4
     val INDENTATION3x = SPACE * 6
+    val INDENTATION4x = SPACE * 8
 
     private const val PACKAGE_NAME = "com.parsuomash.voyager_safe_args"
     private const val ANNOTATION_PACKAGE_NAME = "com.parsuomash.voyager_safe_args.annotation"
-    private const val SCREEN_ANNOTATION_ANNOTATION = "Screen"
-    private const val PARAM_SERIALIZE_ANNOTATION_ANNOTATION = "ParamSerializer"
-    const val SCREEN_ANNOTATION_PACKAGE = "$ANNOTATION_PACKAGE_NAME.$SCREEN_ANNOTATION_ANNOTATION"
-    const val PARAM_SERIALIZE_ANNOTATION_PACKAGE =
-      "$ANNOTATION_PACKAGE_NAME.$PARAM_SERIALIZE_ANNOTATION_ANNOTATION"
+    private const val SCREEN_ANNOTATION = "Screen"
+    private const val PARAM_SERIALIZE_ANNOTATION = "ParamSerializer"
+    private const val VISUALIZATION_ANNOTATION = "Visualization"
+    private const val SCREEN_ANNOTATION_PACKAGE = "$ANNOTATION_PACKAGE_NAME.$SCREEN_ANNOTATION"
+    private const val PARAM_SERIALIZE_ANNOTATION_PACKAGE =
+      "$ANNOTATION_PACKAGE_NAME.$PARAM_SERIALIZE_ANNOTATION"
+    private const val VISUALIZATION_ANNOTATION_PACKAGE =
+      "$ANNOTATION_PACKAGE_NAME.$VISUALIZATION_ANNOTATION"
 
     private val TYPE_ARRAYS = listOf(
       "ByteArray",
