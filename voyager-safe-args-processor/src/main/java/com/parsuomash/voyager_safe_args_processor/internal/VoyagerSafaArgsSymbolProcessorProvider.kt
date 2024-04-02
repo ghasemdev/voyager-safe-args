@@ -8,7 +8,11 @@ internal class VoyagerSafaArgsSymbolProcessorProvider : SymbolProcessorProvider 
   override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
     with(environment) {
       VoyagerSafaArgsSymbolProcessor(
-        config = VoyagerSafaArgsConfig(moduleName = options[ARG_MODULE_NAME].orEmpty()),
+        config = VoyagerSafaArgsConfig(
+          moduleName = options[ARG_MODULE_NAME].orEmpty(),
+          mermaidGraph = options[ARG_MERMAID_GRAPH],
+          markdownMermaidGraph = options[ARG_MARKDOWN_MERMAID_GRAPH],
+        ),
         codeGenerator = codeGenerator,
         logger = logger
       )
@@ -16,5 +20,7 @@ internal class VoyagerSafaArgsSymbolProcessorProvider : SymbolProcessorProvider 
 
   private companion object {
     const val ARG_MODULE_NAME = "voyager.moduleName"
+    const val ARG_MERMAID_GRAPH = "voyager.mermaidGraph"
+    const val ARG_MARKDOWN_MERMAID_GRAPH = "voyager.markdownMermaidGraph"
   }
 }

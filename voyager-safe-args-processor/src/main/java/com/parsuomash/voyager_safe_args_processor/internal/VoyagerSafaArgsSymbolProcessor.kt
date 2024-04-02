@@ -9,12 +9,12 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
-import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.validate
+import com.parsuomash.voyager_safe_args_processor.model.getValue
+import com.parsuomash.voyager_safe_args_processor.model.getVisualizationNode
 import com.parsuomash.voyager_safe_args_processor.utils.CodeGenerationVisibility
 import com.parsuomash.voyager_safe_args_processor.utils.ImportManager
 import com.parsuomash.voyager_safe_args_processor.utils.Logger
@@ -59,8 +59,12 @@ internal class VoyagerSafaArgsSymbolProcessor(
 
   private fun visualizationValidation() {
     visualizationAnnotationDeclarations.forEach { declaration ->
-      val className = declaration.simpleName.getShortName()
+      val functionName = declaration.simpleName.getShortName()
       val packageName = declaration.packageName.asString()
+
+      val visualizationNode = declaration.getVisualizationNode()
+
+      logger.logging("$packageName $functionName $visualizationNode")
     }
   }
 
@@ -442,30 +446,6 @@ internal class VoyagerSafaArgsSymbolProcessor(
       )
     }
   }
-
-  private inline fun <reified T> Sequence<KSAnnotation>.getValue(
-    annotationName: String,
-    argumentName: String
-  ): T? = withName(annotationName)
-    ?.arguments
-    ?.withName(argumentName)
-    ?.value as? T
-
-  @JvmName("getValueAsString")
-  private fun Sequence<KSAnnotation>.getValue(
-    annotationName: String,
-    argumentName: String
-  ): String? = withName(annotationName)
-    ?.arguments
-    ?.withName(argumentName)
-    ?.value
-    ?.toString()
-
-  private fun Sequence<KSAnnotation>.withName(annotationName: String): KSAnnotation? =
-    firstOrNull { it.shortName.getShortName() == annotationName }
-
-  private fun List<KSValueArgument>.withName(argumentName: String): KSValueArgument? =
-    firstOrNull { it.name?.getShortName() == argumentName }
 
   private fun Resolver.screenAnnotationProcess() {
     getSymbolsWithAnnotation(SCREEN_ANNOTATION_PACKAGE)
