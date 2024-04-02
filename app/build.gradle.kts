@@ -6,11 +6,6 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-ksp {
-//    arg("voyager.mermaidGraph", "$rootDir/docs")
-//    arg("voyager.markdownMermaidGraph", "$rootDir/docs")
-}
-
 android {
     namespace = "com.parsuomash.sample"
     compileSdk = 34

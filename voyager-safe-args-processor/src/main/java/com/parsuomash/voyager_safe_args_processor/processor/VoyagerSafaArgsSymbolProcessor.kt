@@ -25,7 +25,6 @@ import com.parsuomash.voyager_safe_args_processor.utils.times
 import com.parsuomash.voyager_safe_args_processor.visitor.ParamSerializerAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.visitor.ScreenAnnotationVisitor
 import com.parsuomash.voyager_safe_args_processor.visitor.VisualizationAnnotationVisitor
-import java.io.File
 
 internal class VoyagerSafaArgsSymbolProcessor(
   private val config: VoyagerSafaArgsConfig,
@@ -124,93 +123,24 @@ internal class VoyagerSafaArgsSymbolProcessor(
     }
 
     val fileName = "${config.moduleName.toUpperCamelCase()}NavigationFlow"
-    writeMMD(fileName, nodesSubgraphString, nodesWithoutSubgraphString, nodesNavigation, styles)
-    writeMD(fileName, nodesSubgraphString, nodesWithoutSubgraphString, nodesNavigation, styles)
-  }
-
-  private fun writeMMD(
-    fileName: String,
-    nodesSubgraphString: String,
-    nodesWithoutSubgraphString: String,
-    nodesNavigation: String,
-    styles: String
-  ) {
-    if (config.markdownMermaidGraph != null) {
-      File(config.markdownMermaidGraph, "$fileName.md")
-        .writeBytes(
-          """
+    codeGenerator.createNewFile(
+      dependencies = Dependencies(
+        aggregating = true,
+        sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
+      ),
+      packageName = "",
+      fileName = fileName,
+      extensionName = "mmd"
+    ).use { stream ->
+      stream.write(
+        """
           |flowchart LR
           |$nodesSubgraphString
           |$nodesWithoutSubgraphString
           |$nodesNavigation
           |$styles
           """.trimMargin().toByteArray()
-        )
-    } else {
-      codeGenerator.createNewFile(
-        dependencies = Dependencies(
-          aggregating = true,
-          sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
-        ),
-        packageName = "",
-        fileName = fileName,
-        extensionName = "mmd"
-      ).use { stream ->
-        stream.write(
-          """
-          |flowchart LR
-          |$nodesSubgraphString
-          |$nodesWithoutSubgraphString
-          |$nodesNavigation
-          |$styles
-          """.trimMargin().toByteArray()
-        )
-      }
-    }
-  }
-
-  private fun writeMD(
-    fileName: String,
-    nodesSubgraphString: String,
-    nodesWithoutSubgraphString: String,
-    nodesNavigation: String,
-    styles: String
-  ) {
-    if (config.mermaidGraph != null) {
-      File(config.mermaidGraph, "$fileName.mmd")
-        .writeBytes(
-          """
-            |```mermaid
-            |flowchart LR
-            |$nodesSubgraphString
-            |$nodesWithoutSubgraphString
-            |$nodesNavigation
-            |$styles
-            |```
-          """.trimMargin().toByteArray()
-        )
-    } else {
-      codeGenerator.createNewFile(
-        dependencies = Dependencies(
-          aggregating = true,
-          sources = visualizationAnnotationDeclarations.map { it.containingFile!! }.toTypedArray()
-        ),
-        packageName = "",
-        fileName = fileName,
-        extensionName = "mmd"
-      ).use { stream ->
-        stream.write(
-          """
-            |```mermaid
-            |flowchart LR
-            |$nodesSubgraphString
-            |$nodesWithoutSubgraphString
-            |$nodesNavigation
-            |$styles
-            |```
-          """.trimMargin().toByteArray()
-        )
-      }
+      )
     }
   }
 
